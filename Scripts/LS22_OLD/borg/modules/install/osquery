@@ -1,0 +1,13 @@
+#!/bin/sh
+
+pkill launcher 
+pkill osquery-extension.ext 
+pkill osqueryd
+
+tar -C /root/ -xzf /tmp/payload/osquery.tar.gz
+
+cd /root/osquery
+
+sleep 5
+
+./launcher -config ./launcher.flags

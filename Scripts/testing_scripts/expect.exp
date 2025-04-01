@@ -1,0 +1,85 @@
+#!/usr/bin/expect -f
+
+# Declare the variable globally
+global public_key_file
+global public_key_contents
+
+# Read the public SSH key from local file
+set public_key_file "/root/.ssh/testkey.pub"
+set file [open $public_key_file r]
+set public_key_contents [read $file]
+close $file
+
+# Function to handle user creation and key setup
+proc create_user {host username password public_key_contents} {
+    # Set up the new user and SSH keys
+    set new_user "secureuser"
+    set user_password "securepassword"   ;# You may generate a password for the new user or set it to something random
+
+    # Open the SSH connection
+    spawn ssh $username@$host
+
+    expect {
+        "yes/no" { send "yes\r"; exp_continue }
+        "*assword:" { send "$password\r" }
+    }
+
+    expect "$ "
+
+    # Create a secure user
+    send "sudo useradd -m -s /bin/bash $new_user\r"
+    expect "*password*"
+    send "$password\r"
+    expect "$ "
+
+    # Set password for new user
+    send "echo \"$new_user:$user_password\" | sudo chpasswd\r"
+    expect "$ "
+
+    # Create .ssh directory and set permissions
+    send "sudo mkdir -p /home/$new_user/.ssh\r"
+    expect "$ "
+    send "sudo chown $new_user:$new_user /home/$new_user/.ssh\r"
+    expect "$ "
+    send "sudo chmod 700 /home/$new_user/.ssh\r"
+    expect "$ "
+
+    # Write the public key directly to the authorized_keys file
+    send "echo \"$public_key_contents\" | sudo tee /home/$new_user/.ssh/authorized_keys > /dev/null\r"
+    expect "$ "
+
+    # Set correct permissions for authorized_keys
+    send "sudo chown $new_user:$new_user /home/$new_user/.ssh/authorized_keys\r"
+    expect "$ "
+    send "sudo chmod 600 /home/$new_user/.ssh/authorized_keys\r"
+    expect "$ "
+
+    # Set secure permissions on the new user home directory
+    send "sudo chmod 700 /home/$new_user\r"
+    expect "$ "
+
+    # Exit the SSH session
+    send "exit\r"
+    expect eof
+}
+
+# Open the user file
+set file [open "users.txt" r]
+
+# Loop over the lines in the file
+while {![eof $file]} {
+    set line [gets $file]
+    if {[string length $line] > 0} {
+        # Parse the line (username:password:hostip)
+        set parts [split $line ":"]
+        set username [lindex $parts 0]
+        set password [lindex $parts 1]
+        set host [lindex $parts 2]
+
+        # Call create_user procedure
+        create_user $host $username $password $public_key_contents
+    }
+}
+
+# Close the file
+close $file

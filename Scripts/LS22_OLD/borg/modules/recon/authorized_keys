@@ -1,0 +1,15 @@
+#!/bin/sh
+
+echo SSHD-CONFIG
+cat $(find /etc -name sshd_config) | grep -v '#' | grep -ve '^$'
+
+echo -en "\n\nAUTHORIZED_KEYS ROOT\n"
+cat $(find /root -name authorized_keys)
+
+echo -en "\n\nAUTHORIZED_KEYS USERS\n"
+
+for file in $(find /home -name authorized_keys)
+do
+  echo -en "\n\nAUTHORIZED_KEYS ${file}\n"
+  cat ${file}
+done

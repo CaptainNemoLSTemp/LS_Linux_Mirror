@@ -1,0 +1,6 @@
+#!/bin/sh
+
+tar -C /tmp/payload/ -xzf /tmp/payload/lynis-2.7.5.tar.gz
+
+cd /tmp/payload/lynis
+./lynis --no-colors audit system

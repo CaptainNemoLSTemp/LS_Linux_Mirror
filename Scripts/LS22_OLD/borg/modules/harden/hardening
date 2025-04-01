@@ -1,0 +1,551 @@
+#!/bin/bash
+
+#variables
+CMD_OUTPUT=""
+IMAGE_ID=""
+COUNT_FAILED=0
+COUNT_FAILED_FOR=0
+
+##start
+echo "####"
+
+echo "Starting measeurement plans:"
+
+#M505607        Enable Stack Protection
+echo 'kernel.randomize_va_space=2' >> /etc/sysctl.conf
+sysctl -p /etc/sysctl.conf
+
+#check result
+CMD_OUTPUT=`/sbin/sysctl kernel.randomize_va_space`
+if [[ $CMD_OUTPUT == *2* ]];
+        then
+        echo "M505607: success, result ${CMD_OUTPUT}"
+
+else
+        echo "M505607: failed, result ${CMD_OUTPUT}"
+        ((COUNT_FAILED++))
+fi
+
+
+
+#M447734        Enable link protection
+echo 'fs.protected_symlinks=1' >> /etc/sysctl.conf
+echo 'fs.protected_hardlinks=1' >> /etc/sysctl.conf
+sysctl -p /etc/sysctl.conf
+
+#check result
+CMD_OUTPUT=`/sbin/sysctl fs.protected_symlinks`
+if [[ $CMD_OUTPUT == *1* ]];
+        then
+        echo "M447734-1: success, result ${CMD_OUTPUT}"
+
+else
+        echo "M447734-1: failed, result ${CMD_OUTPUT}"
+        ((COUNT_FAILED++))
+fi
+
+CMD_OUTPUT=`/sbin/sysctl fs.protected_hardlinks`
+if [[ $CMD_OUTPUT == *1* ]];
+        then
+        echo "M447734-2: success, result ${CMD_OUTPUT}"
+
+else
+        echo "M447734-2: failed, result ${CMD_OUTPUT}"
+        ((COUNT_FAILED++))
+fi
+
+
+#M604007        Disable Core Dumps
+
+#check if "* hard core 0" is already set
+CMD_OUTPUT=`/bin/grep "* hard core 0" /etc/security/limits.conf`
+
+if [ -z "${CMD_OUTPUT}" ];
+        then
+        CMD_OUTPUT=`/bin/echo "* hard core 0" >> /etc/security/limits.conf`
+        echo "M604007-1: success"
+
+else
+        #everything is fine already
+        echo "M604007-1: success"
+
+fi
+
+#disable coredumps
+echo 'kernel.core_pattern=/dev/null' >> /etc/sysctl.conf
+echo 'kernel.core_uses_pid=0' >> /etc/sysctl.conf
+sysctl -p /etc/sysctl.conf
+
+#check result
+CMD_OUTPUT=`/sbin/sysctl kernel.core_pattern`
+if [[ $CMD_OUTPUT == */dev/null* ]];
+        then
+        echo "M604007-2: success, result ${CMD_OUTPUT}"
+
+else
+        echo "M604007-2: failed, result ${CMD_OUTPUT}"
+        ((COUNT_FAILED++))
+fi
+
+CMD_OUTPUT=`/sbin/sysctl kernel.core_uses_pid`
+if [[ $CMD_OUTPUT == *0* ]];
+        then
+        echo "M604007-3: success, result ${CMD_OUTPUT}"
+
+else
+        echo "M604007-3: failed, result ${CMD_OUTPUT}"
+        ((COUNT_FAILED++))
+fi
+
+
+#M730750        Setting Umask
+CMD_OUTPUT=`umask`
+
+if [[ $CMD_OUTPUT == *077* ]];
+        then
+        echo "M730750-1: success, result ${CMD_OUTPUT}"
+
+else
+        #otherwise set it to 077, afterwards it will be fine
+        CMD_OUTPUT=`umask 077`
+
+        echo "M730750-1: success, result ${CMD_OUTPUT}"
+fi
+
+#check settings in /etc/login.defs to be UMASK 077
+CMD_OUTPUT=`/bin/grep UMASK /etc/login.defs | /bin/grep -v "#"`
+
+if [[ $CMD_OUTPUT == *077* ]];
+        then
+        echo "M730750-2: success, result ${CMD_OUTPUT}"
+
+else
+        #otherwise set it to 077, afterwards it will be fine
+        #
+
+        echo "M730750-2: failed, result ${CMD_OUTPUT}"
+        ((COUNT_FAILED++))
+fi
+
+
+#M608700        Scheduled service security
+#       find / -type f \( -name “*.timer” -or -name “*.service” \) -exec grep -li “Timer” {} \;
+#should be empty otherwise cry
+CMD_OUTPUT=`/bin/find / -type f \( -name “*.timer” -or -name “*.service” \) -exec /bin/grep -li “Timer” {} \;`
+if [ -z "${CMD_OUTPUT}" ];
+        then
+        #everything is fine
+        echo "M608700-1: success, result ${CMD_OUTPUT}"
+else
+        echo "M608700-1: failed, result ${CMD_OUTPUT}"
+        ((COUNT_FAILED++))
+fi
+
+
+#check group
+CMD_OUTPUT=`/usr/bin/stat -c %a /etc/cron.d/* | /bin/cut -c2-2`
+
+#set back counter for for-loop, so output is fired only once
+COUNT_FAILED_FOR=0
+
+for LINE_TO_CHECK in $CMD_OUTPUT;
+                do
+                        if [ "$LINE_TO_CHECK" -gt 5 ];
+                        then
+                                echo "M608700-2: failed, result ${LINE_TO_CHECK}"
+                                ((COUNT_FAILED_FOR++))
+                        fi
+
+                done
+
+if [ "$COUNT_FAILED_FOR" -lt 1 ];
+        then
+                echo "M608700-2: success"
+
+else
+        echo "M608700-2: failed!"
+        ((COUNT_FAILED++))
+
+fi
+
+
+#check others
+
+#set back counter for for-loop, so output is fired only once
+COUNT_FAILED_FOR=0
+
+CMD_OUTPUT=`/usr/bin/stat -c %a /etc/cron.d/* | /bin/cut -c3-3`
+
+for LINE_TO_CHECK in $CMD_OUTPUT;
+                do
+                        if [ "$LINE_TO_CHECK" -gt 5 ];
+                        then
+                                echo "M608700-3: failed, result ${LINE_TO_CHECK}"
+                                ((COUNT_FAILED_FOR++))
+
+                        fi
+
+                done
+
+
+if [ "$COUNT_FAILED_FOR" -lt 1 ];
+        then
+                echo "M608700-3: success"
+
+else
+        echo "M608700-3: failed!"
+        ((COUNT_FAILED++))
+
+fi
+
+#countermeassure?
+
+
+
+#M802906        Protecting System Files
+
+#check first locations
+#find / -mount -type f -name ’*.unit’ -or -name ’*.service’
+CMD_OUTPUT=`/bin/find / -mount -type f -name ’*.unit’ -or -name ’*.service’`
+
+#should be empty
+if [ -z "${CMD_OUTPUT}" ];
+        then
+        #everything is fine
+        echo "M802906-1: success, result ${CMD_OUTPUT}"
+else
+        echo "M802906-1: failed, result ${CMD_OUTPUT}"
+        ((COUNT_FAILED++))
+fi
+
+#
+
+#Files used to trigger services at startup must belong to root, and no-one apart from root is allowed to have write rights.
+# /etc/rc*, /etc/rc?.d/*,/usr/local/etc/rc.d/*, and /etc/init.d/*
+#remove write access to the named folders for group and others
+CMD_OUTPUT=`/bin/chmod -c -R go-w /etc/rc* /etc/rc?.d/* /usr/local/etc/rc.d/* /etc/init.d/* `
+
+#there should be no error here when its done by root (beside folders not existent), so command will allways ensure the compliance
+echo "M802906-2: success, result ${CMD_OUTPUT}"
+
+#
+
+#M406350        Home folders
+
+#user root
+#home folder must reside in root partition, so lets look which partition is ~ located and if it is ending with /
+CMD_OUTPUT=`/bin/df -l ~ | /bin/egrep [$/]`
+
+#check if output is not empty
+if [ -n "${CMD_OUTPUT}" ];
+        then
+        #everything is fine
+        echo "M406350-1: success, result ${CMD_OUTPUT}"
+else
+        echo "M406350-1: failed, result ${CMD_OUTPUT}"
+        ((COUNT_FAILED++))
+fi
+
+
+#root set permissions chmod
+CMD_OUTPUT=`/bin/chmod -c -R 700 ~`
+echo "M406350-2: success, result ${CMD_OUTPUT}"
+
+#home non-root users
+#check for specific filenames and their setting
+
+#check group
+CMD_OUTPUT=`/bin/find /home/* -name .netrc -or -name .telnetrc -or -name .ssh -or -name .bashrc -or -name .profile | /usr/bin/xargs /usr/bin/stat -c %a | /bin/cut -c2-2`
+
+#set back counter for for-loop, so output is fired only once
+COUNT_FAILED_FOR=0
+
+for LINE_TO_CHECK in $CMD_OUTPUT;
+                do
+                        if [ "$LINE_TO_CHECK" -gt 5 ];
+                        then
+                                echo "M406350-3: failed, result ${LINE_TO_CHECK}"
+                                ((COUNT_FAILED_FOR++))
+
+                        fi
+
+                done
+
+if [ "$COUNT_FAILED_FOR" -lt 1 ];
+        then
+                echo "M406350-3: success"
+
+else
+        echo "M406350-3: failed!"
+        ((COUNT_FAILED++))
+
+fi
+
+
+#check others
+CMD_OUTPUT=`/bin/find /home/* -name .netrc -or -name .telnetrc -or -name .ssh -or -name .bashrc -or -name .profile | /usr/bin/xargs /usr/bin/stat -c %a | /bin/cut -c3-3`
+#set back counter for for-loop, so output is fired only once
+COUNT_FAILED_FOR=0
+
+for LINE_TO_CHECK in $CMD_OUTPUT;
+                do
+                        if [ "$LINE_TO_CHECK" -gt 5 ];
+                        then
+                                echo "M406350-4: failed, result ${LINE_TO_CHECK}"
+                                ((COUNT_FAILED_FOR++))
+
+                        fi
+
+                done
+
+if [ "$COUNT_FAILED_FOR" -lt 1 ];
+        then
+                echo "M406350-4: success"
+
+else
+        echo "M406350-4: failed!"
+        ((COUNT_FAILED++))
+
+fi
+
+
+
+#non-interactive users, ignoring all the good cases: nologin, bin/false, root, usual user, sync, halt, shutdown
+
+CMD_OUTPUT=`/bin/cat /etc/passwd | /bin/grep -v /sbin/nologin | /bin/grep -v /sbin/shutdown | /bin/grep -v /home/ec2-user | /bin/grep -v :root: | /bin/grep -v /bin/sync | /bin/grep -v /sbin/halt | /bin/grep -v /bin/false | /bin/grep -v :::::::::::::: | /bin/grep -v /home/ssm-user | /bin/grep -v /home/centos`
+#should be empty
+if [ -z "${CMD_OUTPUT}" ];
+        then
+        #everything is fine
+        echo "M406350-5: success, result ${CMD_OUTPUT}"
+else
+        echo "M406350-5: failed, result ${CMD_OUTPUT}"
+        ((COUNT_FAILED++))
+
+        #for debugging:
+        #CMD_OUTPUT=`/bin/cat /etc/passwd`
+        #echo "M406350-5: for debugging: ${CMD_OUTPUT}"
+
+fi
+
+
+#M805036        Links in the folder /tmp
+
+CMD_OUTPUT=`/bin/find /tmp -type l -and -lname ’/*’ -or -lname ’*..*’`
+#should be empty
+if [ -z "${CMD_OUTPUT}" ];
+        then
+        #everything is fine
+        echo "M805036: success, result ${CMD_OUTPUT}"
+else
+        echo "M805036: failed, result ${CMD_OUTPUT}"
+        ((COUNT_FAILED++))
+fi
+
+
+#M509730        Existing user and group for all files
+#"find / -nouser -o -nogroup" is recommendet, but this get failures within /proc/ownpid/*
+#so failures are excluded
+
+CMD_OUTPUT=`/bin/find / -nouser -o -nogroup 2>/dev/null`
+#should be empty
+if [ -z "${CMD_OUTPUT}" ];
+        then
+        #everything is fine
+        echo "M509730: success, result ${CMD_OUTPUT}"
+else
+        echo "M509730: failed, result ${CMD_OUTPUT}"
+        ((COUNT_FAILED++))
+fi
+
+
+#M812040        Monitoring SUID and SGID files
+
+#search for files with an s-Bit
+#create a whitelist, should be checked every month, as long as no machine is running longer, should be fine without checking algorythm
+CMD_OUTPUT=`/bin/find / -type f \( -perm -2000 -o -perm -4000 \) -print 2>/dev/null`
+
+echo "M812040-1: success, result:"
+echo "${CMD_OUTPUT}"
+
+
+#search for shell procedures with an s-Bit use
+#create a whitelist, should be checked every month, as long as no machine is running longer, should be fine without checking algorythm
+CMD_OUTPUT=`/bin/find / -type f \( -perm -2000 -o -perm -4000 \) -exec file {} \; 2>/dev/null | /bin/grep -v ”executable”`
+echo "M812040-2: success, result:"
+echo "${CMD_OUTPUT}"
+
+
+#CMD_OUTPUT=`find / -type f -name *.conf | xargs chmod -c -R go-w {} +`
+CMD_OUTPUT=`/bin/find / -type f -name *.conf | /usr/bin/xargs /bin/chmod -c -R go-w`
+#command will always be fine and output containes all changed configuration files (helpfull in case the implementation is to greedy)
+echo "M447647-1: success, result ${CMD_OUTPUT}"
+
+#in second instance for sshd_config, if file exists
+if [ -s /etc/ssh/sshd_config ];
+        then
+        CMD_OUTPUT=`chmod -c go-w /etc/ssh/sshd_config`
+        echo "M447647-2: success, result ${CMD_OUTPUT}"
+fi
+
+
+#check for rpcbind and remove if available
+CMD_OUTPUT=`/bin/netstat -tulpn | /bin/grep :111 | /bin/grep LISTEN`
+
+if [[ $CMD_OUTPUT == *LISTEN* ]];
+        then
+        CMD_OUTPUT=`/usr/bin/yum -y remove rpcbind`
+        echo "M307609: success, rpcbind removed"
+else
+        echo "M307609: success, no rpcbind"
+fi
+
+
+#M202900        Check active Network Connections
+#we accept sshd, ntpd, dhclient (IPv4/IPv6) at this point,
+
+
+
+CMD_OUTPUT=`/bin/netstat -tulpn | /bin/egrep "0 (0\.0\.0\.0|:::)" | /bin/grep -v ntpd | /bin/grep -v dhclient | /bin/grep -v sshd`
+#remove also rpc.statd?
+#should be empty
+if [ -z "${CMD_OUTPUT}" ];
+        then
+        #everything is fine
+        echo "M202900: success, result ${CMD_OUTPUT}"
+else
+        echo "M202900: failed, result ${CMD_OUTPUT}"
+        ((COUNT_FAILED++))
+fi
+
+cp /etc/ssh/sshd_config /etc/ssh/sshd_config_before
+
+#Cipher
+CMD_OUTPUT=`/bin/cat /etc/ssh/sshd_config | /bin/grep -v \# | /bin/grep Cipher`
+
+#should be empty
+if [ -z "${CMD_OUTPUT}" ];
+        then
+        #everything is fine
+        #so lets add the line
+        echo "#test_hardening" >> /etc/ssh/sshd_config
+        CMD_OUTPUT=`/bin/echo "Ciphers aes256-ctr,aes192-ctr,aes192-cbc,aes256-cbc,aes256-gcm@openssh.com,chacha20-poly1305@openssh.com" >> /etc/ssh/sshd_config`
+
+        echo "M447621-1: success, result ${CMD_OUTPUT}"
+
+else
+        #comment line with Cipher
+        /bin/cat /etc/ssh/sshd_config | sed -e "s/Ciphers/#Ciphers/" > /etc/ssh/sshd_config_backup
+
+        #copy back
+        /bin/cat /etc/ssh/sshd_config_backup > /etc/ssh/sshd_config
+
+        #add line
+        CMD_OUTPUT=`/bin/echo "Ciphers aes256-ctr,aes192-ctr,aes192-cbc,aes256-cbc,aes256-gcm@openssh.com,chacha20-poly1305@openssh.com" >> /etc/ssh/sshd_config`
+
+        #as we are now compliant:
+        echo "M447621-1: success, result ${CMD_OUTPUT}"
+        #((COUNT_FAILED++))
+fi
+
+#MACs
+CMD_OUTPUT=`/bin/cat /etc/ssh/sshd_config | grep -v \# | grep MACs`
+
+#should be empty
+if [ -z "${CMD_OUTPUT}" ];
+        then
+        #everything is fine
+        #so lets add the line
+        echo "#test_hardening" >> /etc/ssh/sshd_config
+        CMD_OUTPUT=`/bin/echo "MACs hmac-sha2-256,hmac-sha2-512,hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com" >> /etc/ssh/sshd_config`
+
+        echo "M447621-2: success, result ${CMD_OUTPUT}"
+
+else
+        #comment line with MACs
+        cat /etc/ssh/sshd_config | sed -e "s/MACs/#MAcs/" > /etc/ssh/sshd_config_backup
+
+        #copy back
+        cat /etc/ssh/sshd_config_backup > /etc/ssh/sshd_config
+
+        #add line
+        CMD_OUTPUT=`/bin/echo "MACs hmac-sha2-256,hmac-sha2-512,hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com" >> /etc/ssh/sshd_config`
+
+        #as we are now compliant:
+        echo "M447621-2: success, result ${CMD_OUTPUT}"
+        #((COUNT_FAILED++))
+fi
+
+
+#KexAlgorithms
+CMD_OUTPUT=`/bin/cat /etc/ssh/sshd_config | grep -v \# | /bin/grep KexAlgorithms`
+
+#should be empty
+if [ -z "${CMD_OUTPUT}" ];
+        then
+        #everything is fine
+        #so lets add the line
+        echo "#test_hardening" >> /etc/ssh/sshd_config
+        CMD_OUTPUT=`echo "KexAlgorithms diffie-hellman-group-exchange-sha256,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,curve25519-sha256@libssh.org" >> /etc/ssh/sshd_config`
+
+        echo "M447621-3: success, result ${CMD_OUTPUT}"
+
+else
+        #comment line with KexAlgorithms
+        /bin/cat /etc/ssh/sshd_config | sed -e "s/KexAlgorithms/#KexAlgorithms/" > /etc/ssh/sshd_config_backup
+
+        #copy back
+        /bin/cat /etc/ssh/sshd_config_backup > /etc/ssh/sshd_config
+
+        #add line
+        CMD_OUTPUT=`/bin/echo "KexAlgorithms diffie-hellman-group-exchange-sha256,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,curve25519-sha256@libssh.org" >> /etc/ssh/sshd_config`
+
+        #as we are now compliant:
+        echo "M447621-3: success, result ${CMD_OUTPUT}"
+        #((COUNT_FAILED++))
+fi
+
+
+# test sshd configuration
+CMD_OUTPUT=`/usr/sbin/sshd -t`
+
+#(no output good)
+if [ -z "${CMD_OUTPUT}" ];
+        then
+        #everything is fine
+        #so lets restart the service
+        CMD_OUTPUT=`/etc/init.d/sshd restart`
+        echo "M447621-4: success, result ${CMD_OUTPUT}"
+
+#something wrent wrong with the configuration, so lets go back
+else
+        #copy sshd_config back to beginning
+        cp /etc/ssh/sshd_config /etc/ssh/sshd_config_before
+        echo "M447621-4: failed, result ${CMD_OUTPUT}"
+fi
+
+#cleanup, use of -f (force) to supress error messages in case of non-existent
+/bin/rm -f /etc/ssh/sshd_config_backup
+/bin/rm -f /etc/ssh/sshd_config_backup_before
+
+
+
+
+#failure counter
+echo "####"
+if [ "$COUNT_FAILED" -lt 1 ];
+        then
+                echo "FINALRESULT: all applicable measures implemented!"
+
+else
+        echo "FINALRESULT: NOT all applicable measures implemented! COUNT_FAILED: ${COUNT_FAILED}"
+
+fi
+
+
+#end
+echo "end"
+##
+
+
+

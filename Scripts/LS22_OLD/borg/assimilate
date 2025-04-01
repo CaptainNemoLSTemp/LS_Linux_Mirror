@@ -1,0 +1,47 @@
+#!/bin/bash
+
+SSHKEY=ssh.pem
+
+if [ "$1" == "payload" ]; then
+
+  for host in $(cat drones.linux)
+  do
+
+    ssh -i ${SSHKEY} "${host}" "mkdir -p /tmp/payload"
+
+    for file in $(find modules/$1 -type f)
+    do
+      FN=$(basename ${file})
+      cat ${file} | ssh -i ${SSHKEY} "${host}" "cat > /tmp/payload/${FN}" & 
+
+      echo Copying payload "${file}" to "${host}"
+    done
+
+  done
+
+  exit 0
+fi
+
+if [ "$1" == "recon" ] || [ "$1" == "update" ] || [ "$1" == "harden" ] || [ "$1" == "install" ]; then
+
+  for host in $(cat drones.linux)
+  do
+
+    for module in $(find modules/$1 -type f)
+    do
+      [ ! -d result/${host}/modules/$1 ] && mkdir -p result/${host}/modules/$1
+      if [ "$1" == "harden" ]; then
+        ssh -i ${SSHKEY} "${host}" "sudo bash" < ${module} &> result/${host}/${module} &
+      else
+        ssh -i ${SSHKEY} "${host}" "sudo sh" < ${module} &> result/${host}/${module} &
+      fi
+
+      echo Executing "${module}" on "${host}"
+    done
+
+  done
+
+  exit 0
+fi
+
+echo Usage $0  recon, update, harden, install, payload

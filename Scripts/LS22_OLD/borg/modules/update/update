@@ -1,0 +1,6 @@
+#!/bin/sh
+
+which yum && yum -y update
+which apt-get && apt-get update && apt-get upgrade
+
+

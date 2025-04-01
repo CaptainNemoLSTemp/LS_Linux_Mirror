@@ -1,0 +1,6 @@
+#!/bin/sh
+
+which nft && nft list ruleset
+which iptables && iptables -t filter -S && iptables -t nat -S && iptables -t mangle -S && iptables -t raw -S && iptables -t security -S
+which ip6tables && ip6tables -t filter -S && ip6tables -t nat -S && ip6tables -t mangle -S && ip6tables -t raw -S && ip6tables -t security -S
+

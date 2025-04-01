@@ -1,0 +1,12 @@
+#!/bin/sh
+
+for user in $(cat /etc/shadow | cut -d ':' -f1)
+do
+  crontab -l -u ${user}
+done
+
+for path in /etc/cron.*
+do
+  echo Cron-dir ${path}:
+  ls -l ${path} 
+done

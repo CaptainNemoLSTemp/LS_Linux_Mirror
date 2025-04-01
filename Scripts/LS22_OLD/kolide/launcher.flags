@@ -1,0 +1,5 @@
+enroll_secret_path C:\Program Files\Kolide\Launcher-launcher\conf\secret
+hostname 10.0.0.2:1234
+insecure
+root_directory C:\Program Files\Kolide\Launcher-launcher\data
+osqueryd_path C:\Program Files\Kolide\Launcher-launcher\bin\osqueryd

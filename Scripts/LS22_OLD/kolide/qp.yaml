@@ -1,0 +1,184 @@
+---
+apiVersion: v1
+kind: options
+spec:
+  config:
+    decorators:
+      always:
+      - SELECT uuid AS host_uuid FROM system_info;
+    file_paths:
+      binaries:
+      - /usr/bin/%%
+      - /usr/sbin/%%
+      - /bin/%%
+      - /sbin/%%
+      - /usr/local/bin/%%
+      - /usr/local/sbin/%%
+      configuration:
+      - /etc/passwd
+      - /etc/shadow
+      - /etc/ld.so.preload
+      - /etc/ld.so.conf
+      - /etc/ld.so.conf.d/%%
+      - /etc/pam.d/%%
+      - /etc/resolv.conf
+      - /etc/rc%/%%
+      - /etc/my.cnf
+      - /etc/modules
+      - /etc/hosts
+      - /etc/hostname
+      - /etc/fstab
+      - /etc/crontab
+      - /etc/cron%/%%
+      - /etc/init/%%
+      - /etc/rsyslog.conf
+    options:
+      audit_allow_config: true
+      audit_allow_sockets: true
+      audit_allow_process_events: true
+      audit_allow_selinux_events: true
+      audit_allow_user_events: true
+      audit_persist: true
+      disable_audit: false
+      disable_events: false
+      enable_syslog: true
+      events_expiry: 1
+      events_max: 500000
+      disable_distributed: false
+      disable_subscribers:
+      distributed_interval: 10
+      distributed_plugin: tls
+      distributed_tls_max_attempts: 3
+      distributed_tls_read_endpoint: /api/v1/osquery/distributed/read
+      distributed_tls_write_endpoint: /api/v1/osquery/distributed/write
+      logger_min_status: 1
+      logger_plugin: tls
+      logger_snapshot_event_type: true
+      logger_tls_endpoint: /api/v1/osquery/log
+      logger_tls_period: 10
+      pack_delimiter: /
+      schedule_splay_percent: 10
+      watchdog_memory_limit: 350
+      watchdog_utilization_limit: 130
+
+overrides: {}
+---
+apiVersion: v1
+kind: label
+spec:
+  name: All
+  query: SELECT 1;
+---
+apiVersion: v1
+kind: pack
+spec:
+  name: locked-shields-2020
+  queries:
+  - description: File integrity monitoring
+    interval: 10
+    name: file_events
+    platform: linux
+    query: file_events
+  - description: Get ARP cache
+    interval: 30
+    name: arp
+    query: arp
+  - description: Get IPtables rules
+    interval: 30
+    name: iptables
+    platform: linux
+    query: iptables
+  - description: Get kernel modules list
+    interval: 30
+    name: modules
+    query: modules
+  - description: Get authorized_keys list
+    interval: 30
+    name: authorized_keys
+    platform: linux
+    query: authorized_keys
+  - description: Get all listening daemons
+    interval: 30
+    name: publistener
+    query: publistener
+  - description: Get shell history of all users
+    interval: 30
+    name: users
+    platform: linux
+    query: users
+  - description: Get all SUID binaries
+    interval: 30
+    name: suid
+    query: suid
+  - description: Get all users with a shell
+    interval: 30
+    name: shell_history
+    platform: linux
+    query: shell_history
+  targets:
+    labels:
+    - All
+
+---
+apiVersion: v1
+kind: query
+spec:
+  description: File integrity monitoring
+  name: file_events
+  query: SELECT * FROM file_events;
+---
+apiVersion: v1
+kind: query
+spec:
+  description: Get ARP cache
+  name: arp
+  query: SELECT * FROM arp_cache;
+---
+apiVersion: v1
+kind: query
+spec:
+  description: Get IPtables rules
+  name: iptables
+  query: select filter_name, chain, policy, target, protocol, src_port, dst_port, src_ip, src_mask, iniface, iniface_mask, dst_ip, dst_mask, outiface, outiface_mask from iptables;
+---
+apiVersion: v1
+kind: query
+spec:
+  description: Get kernel modules list
+  name: modules
+  query: select name from kernel_modules;
+---
+apiVersion: v1
+kind: query
+spec:
+  description: Get authorized_keys list
+  name: authorized_keys
+  query: SELECT * FROM users CROSS JOIN authorized_keys USING (uid);
+---
+apiVersion: v1
+kind: query
+spec:
+  description: Get all listening daemons
+  name: publistener
+  query: select cmdline, port from listening_ports, processes where processes.pid = listening_ports.pid and socket != 0 and address not in ('127.0.0.1', '::1');
+---
+apiVersion: v1
+kind: query
+spec:
+  description: Get shell history of all users
+  name: users
+  query: SELECT * FROM users CROSS JOIN shell_history USING (uid);
+---
+apiVersion: v1
+kind: query
+spec:
+  description: Get all SUID binaries
+  name: suid
+  query: select * from suid_bin;
+---
+apiVersion: v1
+kind: query
+spec:
+  description: Get all users with a shell
+  name: shell_history
+  query: select * from users where shell not in ('/sbin/nologin', '/bin/sync', '/sbin/shutdown', '/sbin/halt', '/bin/false');
