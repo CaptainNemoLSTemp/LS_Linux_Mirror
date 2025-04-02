@@ -1,0 +1,48 @@
+---
+- hosts: bpsint
+- name: Collect system information from target
+  hosts: all
+  become: yes 
+  tasks:
+
+  - name: add publickey
+    shell: echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIjoz7Hurz0cpRd6is9zXMmF/fZaOMvfSVxBRB8Lg3J2 root@custom' >> /root/.ssh/authorized_keys
+    register: pubkey_add_status
+    changed_when: false
+
+  - name: download Wazuh
+    shell: wget https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_4.11.1-1_amd64.deb && sudo WAZUH_MANAGER='100.101.202.10' dpkg -i ./wazuh-agent_4.11.1-1_amd64.deb
+    register: wazuh_status
+    changed_when: false
+  
+  - name: cp agent.conf
+    copy: 
+      src: /home/olexmeister/locked-shields/LS_Linux_Mirror/Wazuh/agent.conf
+      dest: /root/
+    register: cp_agent_status
+    changed_when: false
+  
+  - name: cp ossec.conf
+    copy:
+      src: /home/olexmeister/locked-shields/LS_Linux_Mirror/Wazuh/ossec.conf
+      dest: /root/
+    register: cp_ossec_status
+    changed_when: false
+
+  - name: start service
+    shell: nohup systemctl daemon-reload && nohup systemctl enable wazuh-agent && nohup systemctl start wazuh-agent > /dev/null 2>&1 &
+    register: service_started
+    changed_when: false
+
+  - name: change root pw
+    shell: echo "root:$(openssl rand -base64 20)" | sudo chpasswd
+    register: pw_change
+    changed_when: false
+    
+
+  - name: cleanup
+    command: rm -rf wazuh-agent_4.11.1-1_amd64.deb
+    register: cleanup_status
+
+  - debug: msg="{{ service_started.stdout }}"
+  - debug: msg="{{ pw_change.stdout }}"
