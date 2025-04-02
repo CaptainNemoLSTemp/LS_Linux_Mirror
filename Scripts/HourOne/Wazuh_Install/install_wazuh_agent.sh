@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define the path to the Wazuh .deb file and the path where it will be copied on the remote machine
-LOCAL_DEB_FILE="wazuh-agent_4.11.1-1_amd64.deb"
+LOCAL_DEB_FILE="wazuh-agent_4.11.1-1_amd64.deb" 
 REMOTE_PATH="/root/tmp/wazuh-agent_4.11.1-1_amd64.deb"
 WAZUH_MANAGER_IP="100.101.202.10"  # The Wazuh manager IP
 REMOTE_DIR="/root/tmp"
@@ -9,8 +9,8 @@ REMOTE_DIR="/root/tmp"
 # Path to your hosts.txt file
 HOSTS_FILE="hosts.txt"
 
-# The SSH private key file for authentication
-SSH_KEY="/root/.ssh/skeletonkey"
+# The SSH private key file for authentication - assumes key is IN THE SAME FOLDER AFTER EXPORT
+SSH_KEY="skeletonkey"
 
 # Function to copy and install Wazuh agent
 install_wazuh_agent() {
