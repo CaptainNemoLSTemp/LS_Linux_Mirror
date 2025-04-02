@@ -17,14 +17,14 @@
   
   - name: cp agent.conf
     copy: 
-      src: /home/olexmeister/locked-shields/LS_Linux_Mirror/Wazuh/agent.conf
+      src: ./LS_Linux_Mirror/Wazuh/agent.conf
       dest: /root/
     register: cp_agent_status
     changed_when: false
   
   - name: cp ossec.conf
     copy:
-      src: /home/olexmeister/locked-shields/LS_Linux_Mirror/Wazuh/ossec.conf
+      src: ./LS_Linux_Mirror/Wazuh/ossec.conf
       dest: /root/
     register: cp_ossec_status
     changed_when: false
