@@ -26,9 +26,9 @@ set -euo pipefail
 # =====================================================================
 
 # Set variables (modify these as needed)
-UDP_PORT="514"  # Standard UDP port for rsyslog
-ALLOWED_IPS="0.0.0.0/0" # Network range allowed to send logs
-LOCAL_IP="100.101.202.10"       # IP address to bind to for syslog reception
+UDP_PORT="514"                 # Standard UDP port for rsyslog
+ALLOWED_IPS="0.0.0.0/0"        # Network range allowed to send logs
+LOCAL_IP="192.168.10.10"       # IP address to bind to for syslog reception (custom VM IP)
 
 # Simple logging functions for better output readability
 log_info() {
